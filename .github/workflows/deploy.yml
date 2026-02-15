@@ -13,26 +13,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install dependencies
-        # 依存関係の競合によるビルド失敗を防ぎます
         run: npm install --legacy-peer-deps
-
       - name: Build
-        # 重要：GitHubのSecretsに登録したAPIキーをビルド環境へ渡します
         run: npm run build
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+          # VITE_ から始まる名前にすることで、Viteが自動的にビルド時に埋め込みます
+          VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
 
@@ -43,6 +35,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4
