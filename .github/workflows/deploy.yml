@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Universal Deploy to GitHub Pages
 
 on:
   push:
@@ -10,30 +10,36 @@ permissions:
   id-token: write
 
 jobs:
-  build:
+  build_and_deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-      - name: Build
-        # GitHubのSecretsに設定したAPIキーをビルド環境に渡します
-        run: npm run build
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Auto-fix Paths & Build
+        run: |
+          # 1. 依存関係のインストール
+          npm install --legacy-peer-deps
+
+          # 2. リポジトリ名を自動取得（例: "norke-vj"）
+          REPO_NAME=$(echo ${{ github.repository }} | cut -d'/' -f2)
+
+          # 3. index.html の絶対パスを相対パスに強制修正
+          sed -i 's/src="\/index.tsx"/src=".\/index.tsx"/g' index.html
+          sed -i 's/href="\/index.css"/href=".\/index.css"/g' index.html
+
+          # 4. Viteビルド時にリポジトリ名を base パスとして強制注入
+          npx vite build --base=/$REPO_NAME/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
+      - name: Deploy
         uses: actions/deploy-pages@v4
