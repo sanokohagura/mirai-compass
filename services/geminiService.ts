@@ -1,28 +1,21 @@
-import { GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { UserAnswer } from "../types";
 import { SYSTEM_INSTRUCTION } from "../constants";
 
-// Vite の define 設定で埋め込まれたAPIキーを取得します
-const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
-
 export const generateDiagnosis = async (answers: UserAnswer[]): Promise<string> => {
+  // 修正1: 複数の環境変数名に対応させ、APIキーが確実に渡るようにします
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+  
   if (!apiKey) {
-    throw new Error("APIキーが設定されていません。GitHubのSecretsを確認してください。");
+    console.error("API Key is missing from environment variables.");
+    throw new Error("APIキーが見つかりません。GitHubのSecrets設定を確認してください。");
   }
 
-  // 1. クラス名を GoogleGenerativeAI に修正し、インスタンス化を正しい形式に変更
-  const genAI = new GoogleGenerativeAI(apiKey);
+  // 修正2: クラス名を GoogleGenAI に戻します (ビルドエラーの解消)
+  const ai = new GoogleGenAI({ apiKey });
   
-  // 2. モデル取得時にシステム指示を組み込みます
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-3-flash-preview',
-    systemInstruction: SYSTEM_INSTRUCTION,
-    generationConfig: {
-      temperature: 0.8,
-    }
-  });
-
   const answersFormatted = answers.map(a => `[${a.questionId}: ${a.questionText}] -> 回答: ${a.answerText}`).join('\n');
+  
   const targetLevel = answers.find(a => a.questionId === 'Q15')?.answerText || '未定';
   const targetRegion = answers.find(a => a.questionId === 'Q16')?.answerText || '指定なし';
 
@@ -37,14 +30,20 @@ ${answersFormatted}
 `;
 
   try {
-    // 3. 呼び出しフローを SDK の標準仕様（generateContent）に修正
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    return text || "ごめんね、診断結果をうまくまとめられなかったよ。もう一度試してみてね！";
+    // 修正3: gemini-3-flash-preview を使用
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        temperature: 0.8,
+      },
+    });
+
+    // 修正4: response.text は関数ではなくプロパティとして参照
+    return response.text || "ごめんね、診断結果をうまくまとめられなかったよ。もう一度試してみてね！";
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Gemini API Error Detail:", error);
     throw new Error("AIとの通信中にエラーが発生しました。");
   }
 };
