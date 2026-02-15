@@ -3,19 +3,19 @@ import { UserAnswer } from "../types";
 import { SYSTEM_INSTRUCTION } from "../constants";
 
 export const generateDiagnosis = async (answers: UserAnswer[]): Promise<string> => {
-  // 修正1: 複数の環境変数名に対応させ、APIキーが確実に渡るようにします
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+  // Viteのdefine設定からキーを取得
+  const apiKey = process.env.GEMINI_API_KEY || "";
   
   if (!apiKey) {
+    // コンソールに表示されるエラーメッセージの原因
     console.error("API Key is missing from environment variables.");
-    throw new Error("APIキーが見つかりません。GitHubのSecrets設定を確認してください。");
+    throw new Error("APIキーが設定されていません。");
   }
 
-  // 修正2: クラス名を GoogleGenAI に戻します (ビルドエラーの解消)
+  // 正しいクラス名 GoogleGenAI を使用
   const ai = new GoogleGenAI({ apiKey });
   
   const answersFormatted = answers.map(a => `[${a.questionId}: ${a.questionText}] -> 回答: ${a.answerText}`).join('\n');
-  
   const targetLevel = answers.find(a => a.questionId === 'Q15')?.answerText || '未定';
   const targetRegion = answers.find(a => a.questionId === 'Q16')?.answerText || '指定なし';
 
@@ -30,7 +30,6 @@ ${answersFormatted}
 `;
 
   try {
-    // 修正3: gemini-3-flash-preview を使用
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -40,10 +39,9 @@ ${answersFormatted}
       },
     });
 
-    // 修正4: response.text は関数ではなくプロパティとして参照
-    return response.text || "ごめんね、診断結果をうまくまとめられなかったよ。もう一度試してみてね！";
+    return response.text || "ごめんね、診断結果をうまくまとめられなかったよ。";
   } catch (error) {
-    console.error("Gemini API Error Detail:", error);
+    console.error("Gemini API Error:", error);
     throw new Error("AIとの通信中にエラーが発生しました。");
   }
 };
